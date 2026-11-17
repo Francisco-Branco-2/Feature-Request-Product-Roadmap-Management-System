@@ -125,9 +125,24 @@ function mysqlCli() {
   return null;
 }
 
+function adminConfig() {
+  const base = mysqlConfig();
+  const rootPassword = envAllowEmpty('MYSQL_ROOT_PASSWORD', undefined);
+  if (rootPassword === undefined) return base;
+  return {
+    ...base,
+    user: env('MYSQL_ROOT_USER', 'root'),
+    password: rootPassword,
+  };
+}
+
 function cliArgs(cfg, { withDatabase = true } = {}) {
   const args = ['-u', cfg.user];
-  if (cfg.password) args.push(`-p${cfg.password}`);
+  if (cfg.password !== undefined && cfg.password !== null && cfg.password !== '') {
+    args.push(`-p${cfg.password}`);
+  } else if (cfg.password === '') {
+    /* no -p for empty password */
+  }
   if (cfg.socketPath) args.push(`--socket=${cfg.socketPath}`);
   else {
     args.push('-h', cfg.host || '127.0.0.1');
@@ -137,8 +152,8 @@ function cliArgs(cfg, { withDatabase = true } = {}) {
   return args;
 }
 
-function runSql(sql, { withDatabase = true } = {}) {
-  const cfg = mysqlConfig();
+function runSql(sql, { withDatabase = true, admin = false } = {}) {
+  const cfg = admin ? adminConfig() : mysqlConfig();
   const bin = mysqlCli();
   if (!bin) {
     throw new Error('mysql/mariadb CLI not found — needed to apply schema/triggers');
@@ -148,35 +163,39 @@ function runSql(sql, { withDatabase = true } = {}) {
     encoding: 'utf8',
   });
   if (result.status !== 0) {
-    throw new Error(`SQL apply failed:\n${result.stderr || result.stdout}`);
+    const where = cfg.socketPath
+      ? `socket ${cfg.socketPath}`
+      : `${cfg.host}:${cfg.port}`;
+    throw new Error(
+      `SQL apply failed (${where} user=${cfg.user}):\n${result.stderr || result.stdout}`,
+    );
   }
   return result.stdout;
 }
 
-function runSqlFile(filePath) {
-  runSql(fs.readFileSync(filePath, 'utf8'), { withDatabase: false });
+function runSqlFile(filePath, opts = {}) {
+  runSql(fs.readFileSync(filePath, 'utf8'), { withDatabase: false, ...opts });
 }
 
 export async function resetDatabase() {
   const cfg = mysqlConfig();
   const db = cfg.database;
   runSql(
-    `DROP DATABASE IF EXISTS \`${db}\`;\nCREATE DATABASE \`${db}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\n`,
-    { withDatabase: false },
+    `DROP DATABASE IF EXISTS \`${db}\`;\nCREATE DATABASE \`${db}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\nGRANT ALL PRIVILEGES ON \`${db}\`.* TO 'erprms'@'%';\nFLUSH PRIVILEGES;\n`,
+    { withDatabase: false, admin: true },
   );
   await closePool();
 }
 
 export async function migrate({ force = false } = {}) {
   const cfg = mysqlConfig();
-  // Ensure database exists (best-effort; may require privileges)
   try {
     runSql(
       `CREATE DATABASE IF NOT EXISTS \`${cfg.database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`,
-      { withDatabase: false },
+      { withDatabase: false, admin: true },
     );
   } catch {
-    /* database may already exist / user lacks CREATE */
+    /* database may already exist */
   }
 
   let needsSchema = force;
@@ -190,9 +209,10 @@ export async function migrate({ force = false } = {}) {
   }
 
   if (needsSchema) {
-    runSqlFile(path.join(migrationsDir, '01_schema.sql'));
+    // Schema + triggers need elevated privileges on MySQL 8
+    runSqlFile(path.join(migrationsDir, '01_schema.sql'), { admin: true });
   }
-  runSqlFile(path.join(migrationsDir, '02_credenciais_locais.sql'));
+  runSqlFile(path.join(migrationsDir, '02_credenciais_locais.sql'), { admin: true });
 }
 
 export async function closePool() {

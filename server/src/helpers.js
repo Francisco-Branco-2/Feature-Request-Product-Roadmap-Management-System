@@ -1,7 +1,6 @@
 import { execute, query, queryOne } from './db.js';
 import {
   mapCategory,
-  mapComment,
   mapFeature,
   mapPedidoStatus,
   mapRequest,
@@ -219,5 +218,3 @@ export async function loadFeatureRowByCode(code) {
   if (!pedidoId) return null;
   return queryOne('SELECT * FROM funcionalidades WHERE pedido_origem_id = ?', [pedidoId]);
 }
-
-export { mapComment };

@@ -15,13 +15,6 @@ export const STATUS_TO_API = {
 export const VIS_TO_DB = { public: 'PUBLICO', private: 'PRIVADO' };
 export const VIS_TO_API = { PUBLICO: 'public', PRIVADO: 'private' };
 
-export const ROLE_TABLE = {
-  customer: 'clientes',
-  product_owner: 'product_owners',
-  developer: 'programadores',
-  project_manager: 'gestores_projeto',
-};
-
 export const FEATURE_STATUS_TO_DB = {
   backlog: 'A_FAZER',
   ready: 'A_FAZER',

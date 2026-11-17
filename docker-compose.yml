@@ -9,17 +9,25 @@ services:
       MYSQL_USER: erprms
       MYSQL_PASSWORD: erprms
     ports:
-      - "3306:3306"
+      # 3308 no host evita conflito com MySQL/MariaDB já instalado na 3306
+      - "3308:3306"
     volumes:
       - erprms_mysql_data:/var/lib/mysql
       - ./migrations/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
       - ./migrations/02_credenciais_locais.sql:/docker-entrypoint-initdb.d/02_credenciais_locais.sql:ro
-    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci", "--default-time-zone=+00:00"]
+    command:
+      [
+        "--character-set-server=utf8mb4",
+        "--collation-server=utf8mb4_unicode_ci",
+        "--default-time-zone=+00:00",
+        "--log-bin-trust-function-creators=1",
+      ]
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uerprms", "-perprms"]
       interval: 5s
       timeout: 5s
-      retries: 20
+      retries: 30
+      start_period: 20s
 
 volumes:
   erprms_mysql_data:
