@@ -1,0 +1,25 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: erprms-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: erprms
+      MYSQL_USER: erprms
+      MYSQL_PASSWORD: erprms
+    ports:
+      - "3306:3306"
+    volumes:
+      - erprms_mysql_data:/var/lib/mysql
+      - ./migrations/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./migrations/02_credenciais_locais.sql:/docker-entrypoint-initdb.d/02_credenciais_locais.sql:ro
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci", "--default-time-zone=+00:00"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uerprms", "-perprms"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  erprms_mysql_data:
