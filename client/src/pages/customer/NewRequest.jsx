@@ -4,6 +4,9 @@ import { api } from '../../api/client';
 import { useI18n } from '../../hooks/useI18n';
 import { useToast } from '../../hooks/useToast';
 
+const TITLE_MAX = 100;
+const TEXT_MAX = 2000;
+
 export default function NewRequest() {
   const { t, lang } = useI18n();
   const toast = useToast();
@@ -15,18 +18,51 @@ export default function NewRequest() {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!need.trim() || !benefit.trim()) {
-      toast.show(lang === 'pt' ? 'Necessidade em falta' : 'Need is required');
+    const titleTrim = title.trim();
+    const needTrim = need.trim();
+    const benefitTrim = benefit.trim();
+
+    if (!titleTrim) {
+      toast.show(
+        lang === 'pt'
+          ? 'Indique o título para poder submeter o pedido.'
+          : 'Enter a title to submit the request.',
+      );
       return;
     }
+    if (!needTrim) {
+      toast.show(
+        lang === 'pt'
+          ? 'Descreva a necessidade para poder submeter o pedido.'
+          : 'Describe the need to submit the request.',
+      );
+      return;
+    }
+    if (!benefitTrim) {
+      toast.show(
+        lang === 'pt'
+          ? 'Indique o benefício esperado para poder submeter o pedido.'
+          : 'Enter the expected benefit to submit the request.',
+      );
+      return;
+    }
+    if (titleTrim.length > TITLE_MAX || needTrim.length > TEXT_MAX || benefitTrim.length > TEXT_MAX) {
+      toast.show(
+        lang === 'pt'
+          ? 'Um ou mais campos excedem o limite de caracteres.'
+          : 'One or more fields exceed the character limit.',
+      );
+      return;
+    }
+
     setBusy(true);
     try {
-      const row = await api('/requests', {
+      await api('/requests', {
         method: 'POST',
-        body: JSON.stringify({ title, need, benefit }),
+        body: JSON.stringify({ title: titleTrim, need: needTrim, benefit: benefitTrim }),
       });
       toast.show(lang === 'pt' ? 'Pedido submetido' : 'Request submitted');
-      navigate(`/customer/requests/${row.number}`);
+      navigate('/customer/requests');
     } catch {
       toast.show(t('error'));
     } finally {
@@ -43,10 +79,14 @@ export default function NewRequest() {
           : 'Describe the problem and the benefit you expect.'}
       </p>
       <div className="grid-2">
-        <form className="card" onSubmit={submit}>
+        <form className="card" onSubmit={submit} noValidate>
           <div className="field">
             <label>{t('title')}</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} required />
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              maxLength={TITLE_MAX}
+            />
           </div>
           <div className="field">
             <label>{t('need')}</label>
@@ -54,12 +94,16 @@ export default function NewRequest() {
               value={need}
               onChange={(e) => setNeed(e.target.value)}
               placeholder={t('needPlaceholder')}
-              required
+              maxLength={TEXT_MAX}
             />
           </div>
           <div className="field">
             <label>{t('benefit')}</label>
-            <textarea value={benefit} onChange={(e) => setBenefit(e.target.value)} required />
+            <textarea
+              value={benefit}
+              onChange={(e) => setBenefit(e.target.value)}
+              maxLength={TEXT_MAX}
+            />
           </div>
           <div className="row">
             <button className="btn" type="button" onClick={() => navigate(-1)}>

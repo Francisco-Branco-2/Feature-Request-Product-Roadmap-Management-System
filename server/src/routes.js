@@ -262,8 +262,16 @@ router.post(
   requireRoles('customer'),
   asyncHandler(async (req, res) => {
     const { title, need, benefit } = req.body || {};
-    if (!title?.trim() || !need?.trim() || !benefit?.trim()) {
+    const titleTrim = String(title || '').trim();
+    const needTrim = String(need || '').trim();
+    const benefitTrim = String(benefit || '').trim();
+    if (!titleTrim || !needTrim || !benefitTrim) {
       return res.status(400).json({ error: 'title, need and benefit are required' });
+    }
+    if (titleTrim.length > 100 || needTrim.length > 2000 || benefitTrim.length > 2000) {
+      return res.status(400).json({
+        error: 'title max 100 characters; need and benefit max 2000 characters each',
+      });
     }
     const produto = await queryOne('SELECT id FROM produtos ORDER BY id LIMIT 1');
     if (!produto) return res.status(500).json({ error: 'No product configured' });
@@ -276,10 +284,10 @@ router.post(
       [
         produto.id,
         req.user.id,
-        title.trim(),
-        need.trim(),
-        benefit.trim(),
-        need.trim(),
+        titleTrim,
+        needTrim,
+        benefitTrim,
+        needTrim,
       ],
     );
     const id = result.insertId;
